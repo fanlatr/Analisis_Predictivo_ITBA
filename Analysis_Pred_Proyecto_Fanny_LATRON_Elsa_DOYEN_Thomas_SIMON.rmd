@@ -1,0 +1,357 @@
+---
+title: "Analysis predictivo proyecto 1"
+output: html_notebook
+---
+
+```{r}
+library("dplyr")
+library("ggplot2")
+library("vcd")
+library("tidyverse")
+library("gplots")
+library("reshape2")
+library("ade4") # ACM
+library("factoextra") # fancy ACM
+```
+
+```{r}
+data <- read.csv("diabetes_012_health_indicators_BRFSS2015.csv")
+```
+
+Visualize the dataset
+```{r}
+head(data)
+```
+
+# Cleaning of the dataset #
+
+```{r}
+
+# Calculate the number of person in each type of diabete
+freq_table <- table(data$Diabetes_012)
+
+# Create a barplot
+barplot(freq_table, col="blue", xlab = "Diabete types", ylab="Number of people", main = "Number of people for each type of diabete")
+
+#Create a pie chart
+label_percent <- paste(round(100 * freq_table / sum(freq_table), 1), "%")
+pie(freq_table, col = c("blue", "red", "green"), labels = label_percent, main = "Distribution of Diabetes Types", cex.main = 1.2)
+legend("topright", legend = c("No Diabetes", "Prediabetes", "Diabetes"), fill = c("blue", "red", "green"),
+       title = "Diabetes Types", cex = 0.8)
+
+
+freq_table
+```
+
+
+We choose to put together prediabete and diabete, as we consider that in both case people are sick.
+```{r}
+data$Diabetes_012[data$Diabetes_012 == 2]=1
+
+#we calculate again the number of person in each type of diabete
+freq_table <- table(data$Diabetes_012)
+
+# Create a barplot
+barplot(freq_table, col="blue", xlab = "Diabete", ylab="Number of people", main = "Number of people for each type of diabete")
+
+#Create a pie chart
+label_percent <- paste(round(100 * freq_table / sum(freq_table), 1), "%")
+pie(freq_table, col = c("blue", "red"), labels = label_percent, main = "Distribution of Diabetes Types", cex.main = 1.2)
+legend("topright", legend = c("No Diabetes", "Diabetes"), fill = c("blue", "red"),
+       title = "Diabetes Types", cex = 0.8)
+
+freq_table
+```
+
+We change the name from the column Diabetes_012 to diabete, and we turn it in factors
+```{r}
+data$diabete <- data$Diabetes_012
+data <- data[-which(names(data) == "Diabetes_012")] 
+
+data$diabete = as.factor(data$diabete)
+```
+
+
+
+
+We then look for missing values
+```{r}
+# Count the number of NA in every column
+na_counts <- colSums(is.na(data))
+
+print(na_counts)
+```
+
+# Exploratory analysis #
+
+## Categorical variables ##
+
+We take a look at the importance of the categorical variables on diabete: we take a look at which variables have a lot of 1 when people have diabete, and which variable are important when people don't have diabete.
+
+We start with the sick ones.
+```{r}
+# We create a new dataframe with only categorical variables for people with diabete
+temp_1= data %>% filter(diabete==1)
+temp_1=temp_1 %>% select(-BMI, -GenHlth, -MentHlth, -PhysHlth, -Age, -Education, -Income, -diabete)
+
+# Reshape the data for ggplot
+data_long <- reshape2::melt(temp_1)
+
+# Create a graph with ggplot
+ggplot(data_long, aes(x = value, fill = variable)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Frequency of 0 and 1 for categorical variables for sick people",
+       x = "Values (0 or 1)",
+       y = "Frequency") +
+  theme_minimal()
+
+```
+
+We now do the same for people who don't have diabete.
+```{r}
+# We create a new dataframe with only categorical variables for people without diabete
+temp_0= data %>% filter(diabete==0)
+temp_0=temp_0 %>% select(-BMI, -GenHlth, -MentHlth, -PhysHlth, -Age, -Education, -Income, -diabete)
+
+# Reshape the data for ggplot
+data_long <- reshape2::melt(temp_0)
+
+# Create a graph with ggplot
+ggplot(data_long, aes(x = value, fill = variable)) +
+  geom_bar(position = "dodge") +
+  labs(title = "Frequency of 0 and 1 for categorical variables for healthy people",
+       x = "Values",
+       y = "Frequency") +
+  theme_minimal()
+
+```
+
+We now want to compare for each categorical variable the percentage of sick people compare to the percentage of healthy people.
+```{r}
+#Create a datframe with categorical variables for people with and withou diabete
+cat=data %>% select(-BMI, -MentHlth, -PhysHlth, -Age, -Education, -Income)
+nb_col = ncol(cat)
+
+#Create barplots or each variable
+for (i in 1:(nb_col - 1)) { #-1 to avoid the column diabete
+  colonne <- names(cat)[i]
+  
+  p =ggplot(cat, aes_string(x = colonne, fill = "diabete")) +
+    geom_bar(position = "dodge") +
+    labs(title = paste("Frequency of 0 and 1 for", colonne),
+         x = "Values",
+         y = "Frequency") +
+    scale_fill_manual(values = c("1" = "blue", "0" = "red")) +
+    theme_minimal()
+  
+  p <- p + geom_text(stat = "count", aes(label = scales::percent(..prop..), y = ..prop..), position = position_dodge(width = 0.9), vjust = -0.5, color = "white")
+  
+  print(p)
+}
+```
+
+## Numerical variables ##
+
+
+```{r}
+# Histogram for BMI
+ggplot(data, aes(x=BMI)) +
+  geom_histogram(alpha=0.5) +
+  labs(title = "Histogram of the BMI variable",
+         x = "BMI",
+         y = "Counts") +
+  NULL
+
+#Histogram for MentHlth
+ggplot(data, aes(x=MentHlth)) +
+  geom_histogram(alpha=0.5) +
+  labs(title = "Histogram of the MentHlth variable",
+         x = "MentHlth",
+         y = "Counts") +
+  NULL
+
+#Histogram for PhysHlth
+ggplot(data, aes(x=PhysHlth)) +
+  geom_histogram(alpha=0.5) +
+  labs(title = "Histogram of the PhysHlth variable",
+         x = "PhysHlth",
+         y = "Counts") +
+  NULL
+```
+
+
+## Further exploration ##
+
+
+```{r}
+# List of variable names to exclude in the models : the binaries variables
+variables_excluded <- c("HighBP", "HighChol", "CholCheck", "Smoker", "Stroke", "HeartDiseaseorAttack", "PhysActivity", "Fruits", "Veggies", "HvyAlcoholConsump", "AnyHealthcare", "NoDocbcCost", "DiffWalk", "Sex")
+
+# Loop through the column names of the dataset
+# If the variable is not in the list of variables of interest, move to the next one
+
+for (i in setdiff(names(data), c("diabete", variables_excluded))) {
+
+  # Create an ordered version of the current categorical variable
+  data[[i]] <- ordered(data[[i]])
+  
+  # Perform logistic regression to assess the trend effect and display the summary of the logistic regression
+  model <- glm(diabete ~ as.numeric(data[[i]]), data = data, family = binomial(link = "logit"))
+  cat(paste("Variable:", i, "\n"))
+  summary(model)
+  
+  # Create a trend plot
+  plot(data[[i]], model$fitted.values, xlab = i, ylab = "Probability of Diabetes", main = paste("Trend of", i))
+}
+```
+
+# Correlation analysis #
+
+We transorm the categorical variables in factors
+```{r}
+names_bin = data %>% select_if(
+  function(x) is.numeric(x) & length(unique(x)) == 2) %>% names()
+
+for (col_name in names_bin) {
+  data[[col_name]] <- as.factor(data[[col_name]])
+}
+```
+
+```{r}
+names_cat = c("GenHlth","Age","Education","Income")
+for (col_name in names_cat) {
+  data[[col_name]] <- as.factor(data[[col_name]])
+}
+```
+
+```{r}
+names_num = c("BMI","MentHlth","PhysHlth")
+```
+
+
+We use some functions to calculate the Cramer's V coefficient
+```{r}
+cramer_v = function(df, x1, x2) {
+  tab = table(df[[x1]], df[[x2]])
+  res = as.matrix(tab) %>% rstatix::cramer_v()
+  return(res)
+}
+```
+
+```{r}
+cramer_cors = function(df, col_names) {
+  df_cor = combn(col_names, 2) %>% 
+    t() %>% 
+    as.data.frame() %>% 
+    set_names(c("Var1", "Var2"))
+  df_cor = df_cor %>% mutate(
+    cramer_v = map2_dbl(Var1, Var2, function(x,y) cramer_v(df, x, y))
+  ) %>% arrange(-cramer_v)
+  return(df_cor)
+}
+```
+
+```{r} 
+names_bin <- c(names_bin, "diabete")
+```
+
+```{r}
+res = cramer_cors(data, c(names_bin, names_cat))
+res
+```
+
+We create the Cramer's V correlation matrix.
+```{r}
+variables_uniques <- unique(c(res$Var1, res$Var2))
+matrice_correlation <- matrix(0, nrow = length(variables_uniques), ncol = length(variables_uniques))
+rownames(matrice_correlation) <- colnames(matrice_correlation) <- variables_uniques
+
+for (i in 1:nrow(res)) {
+  var1 <- res$Var1[i]
+  var2 <- res$Var2[i]
+  correlation <- res$cramer_v[i]
+  matrice_correlation[var1, var2] <- correlation
+  matrice_correlation[var2, var1] <- correlation  
+}
+
+diag(matrice_correlation) <- 1
+
+matrice_correlation_long <- melt(matrice_correlation)
+```
+
+Matrix display
+```{r}
+ggplot(matrice_correlation_long, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient(low = "blue", high = "yellow") +
+  labs(title = "Cramer's V correlation matrix") +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+
+We select the results with our target variable "diabete".
+```{r}
+resultats_filtres <- res %>%
+  filter(Var1 == "diabete" | Var2 == "diabete")
+
+print(resultats_filtres)
+```
+
+We calculate the correlation for our numerical variables with the Spearman method.
+```{r}
+a=data[,c("BMI","MentHlth","PhysHlth")]
+a[["BMI"]]=as.numeric(a[["BMI"]])
+a[["MentHlth"]]=as.numeric(a[["MentHlth"]])
+a[["PhysHlth"]]=as.numeric(a[["PhysHlth"]])
+
+cor_mat_spearman <- cor(a, method = "spearman")
+
+print(cor_mat_spearman)
+```
+```{r}
+gg <- GGally::ggcorr(
+  a, method=c("pairwise","spearman"),  
+  label=T, hjust=1, label_size=2, layout.exp=10, size=3)
+
+gg + ggtitle("Correlation matrix with numerical variables")
+```
+
+## MCA ##
+
+We use a MCA to confirm our results
+```{r}
+# Selecting specific columns from the dataframe (binary/categorical variables)
+data_binaries <- data[, c("diabete", "HighBP", "HighChol", "CholCheck", "Smoker", "Stroke", "HeartDiseaseorAttack", "PhysActivity", "Fruits", "Veggies", "HvyAlcoholConsump", "AnyHealthcare", "NoDocbcCost", "DiffWalk", "Sex")]
+
+# Performing Multiple Correspondence Analysis (MCA) on the selected binary/categorical variables
+acm <- dudi.acm(data_binaries, scannf = FALSE, nf = 4)
+```
+
+```{r}
+# Creating a scree plot to visualize the eigenvalues
+screeplot(acm, main = "Screeplot of Multiple Correspondence Analysis of categorical variables")
+```
+
+```{r}
+# Displaying a summary of the Multiple Correspondence Analysis
+summary(acm)
+# Calculating and displaying the inertia of the MCA
+inertia.dudi(acm)
+```
+
+```{r}
+# Creating a scree plot with eigenvalues using 'fviz_screeplot' function
+fviz_screeplot(acm, choice = "eigenvalue")
+```
+
+```{r}
+# Visualizing generally the contribution of variables to the dimensions of MCA
+fviz_mca_var(acm, repel = TRUE)
+```
+
+```{r}
+# Visualizing the contributions of variables to each axis (dimension) individually on barplots
+fviz_contrib(acm, choice = "var", axes = 1)
+fviz_contrib(acm, choice = "var", axes = 2)
+fviz_contrib(acm, choice = "var", axes = 3)
+fviz_contrib(acm, choice = "var", axes = 4)
+```
